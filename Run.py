@@ -107,18 +107,18 @@ def label_data_train_and_predict(gene, ensembl, k, batch_size, num_workers, num_
 		model, loss_func, optimizer, scheduler = load_resnet(weight)
 
 		#train the model
-		trained_model, best_epoch = train_and_validate(model, loss_func, optimizer, scheduler, num_epochs, train_data_loader, valid_data_loader, train_data_size, valid_data_size, image_transforms,dataset, device, output_files)
+		trained_model, best_epoch = train_and_validate(model, loss_func, optimizer, scheduler, num_epochs, train_data_loader, valid_data_loader, train_data_size, valid_data_size, image_transforms,dataset, device, output_files, j)
 
 		# load the best model
 		model = models.resnet18()
 		model.fc = nn.Linear(512, 2)
-		model.load_state_dict(torch.load(output_files+dataset+'_model_'+str(best_epoch)+'.pt'))
+		model.load_state_dict(torch.load(output_files+dataset+'_model_'+str(best_epoch)+f'_{j}_fold.pt'))
 
 		# delete all models except the best one
 		for l in range(num_epochs):
 			if l != best_epoch:
 				try:
-					os.remove(output_files+dataset+'_model_'+str(l)+'.pt')
+					os.remove(output_files+dataset+'_model_'+str(l)+f'_{j}_fold.pt')
 				except:
 					continue
 
@@ -227,8 +227,8 @@ with open("pvalues_"+gene_file+".txt", 'w') as final_file:
 					+labs(title = f'{gene} class 0 probabilitys tiles, t-test: {tiles_ttest}'))
 
 				#ggsave(plot = p1, filename = f"{gene}_median_class_0_probability.png", path = output_files)
-				ggsave(plot = p2, filename = f"{gene}_average_class_0_probability.png", path = output_files)
-				ggsave(plot = p3, filename = f"{gene}_class_0_probability_tiles.png", path = output_files)
+				ggsave(plot = p2, filename = f"{gene}_average_class_0_probability.pdf", path = output_files)
+				ggsave(plot = p3, filename = f"{gene}_class_0_probability_tiles.pdf", path = output_files)
 
 				final_file.write(ensembl+","+gene+","+str(tiles_ttest)+","+str(patients_ttest_average)+","+str(patients_ttest_median)+","+str(logfoldchange)+"\n")
 

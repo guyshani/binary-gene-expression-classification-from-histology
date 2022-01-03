@@ -7,7 +7,7 @@ from plotnine import *
 
 def expression_file(gene):
      #use this function with FPKM/FPKM-UQ files.
-        
+
     '''
     create an expression file         ***FPKM-UQ
 
@@ -37,12 +37,12 @@ def expression_file(gene):
 
 
 def expression_dataframe(gene):
-    
+
     '''
     this function recieves a counts matrix with the format: "gene symbols, gene ensembls, sample1, sample2, ..."
     create a dataframe df with TCGA names and expression for the gene.
     '''
-    
+
     #data = pd.read_csv("/home/guysh/Downloads/counts/countmatrix_normalized_10000_symbols.csv")
     data = pd.read_csv("countmatrix_normalized_10000_symbols.csv")
     df = data.loc[data['symbols'] == gene]
@@ -56,13 +56,13 @@ def expression_dataframe(gene):
 
 
 def fit_GM(df, gene, csv_location, output_files):
-    
+
     '''
     this function trys to fit a gaussian mixture model with 2 disterbutions and split samples into classes accordinly
     if one class has less then 10 samples, the classes are decided by the average expression.
     the class labels are then stored in a new column (cluster) in df.
     '''
-    
+
     GM = GaussianMixture(n_components=2).fit(df[['expression']])
     #GM.means_
     cluster = GM.predict(df[['expression']])
@@ -82,7 +82,7 @@ def fit_GM(df, gene, csv_location, output_files):
 
         # if one of the classes have less then 10 patients then split the class by the average expression.
 
-        mean = statistics.mean(df['expression'])
+        mean = statistics.nanmean(df['expression'])
         df["cluster"].loc[df.query(f'(expression <= {mean})').index.values] = 'low'
         df["cluster"].loc[df.query(f'(expression > {mean})').index.values] = 'high'
 
@@ -93,10 +93,10 @@ def fit_GM(df, gene, csv_location, output_files):
     #seperation between the groups (1 is best and -1 is worse)
     silhouette_score(df[['expression']], cluster)
     df.to_csv(output_files+f"{gene}_crossval.csv", columns= ["tcga_name", "cluster"],header=False, index=False)
-    
+
     print("number of patients in \"high\" group: "+ str(len(np.where(df['cluster'] == 'high')[0])))
     print("number of patients in \"low\" group: "+ str(len(np.where(df['cluster'] == 'low')[0])))
-    
+
     # save a plot of the samples expression disterbution, colored by classes.
     p = (
     ggplot(df)
@@ -104,25 +104,25 @@ def fit_GM(df, gene, csv_location, output_files):
     +geom_histogram(aes(x = 'expression', fill = 'cluster'), alpha = 0.5)
     +labs(title = f'{gene}')
     )
-    ggsave(plot = p, filename = f"{gene}_crossval.png", path = output_files)
-    
+    ggsave(plot = p, filename = f"{gene}_crossval.pdf", path = output_files)
+
     return df
 
 
 
 def stats_and_weights(train_csv, test_csv, csv_location):
-    
+
     '''
         parameters:
             train_csv: a csv file containing the image names (tiles) of all the patients of the trainning set with labels
             test_csv: a csv file containing the image names (tiles) of all the patients of the test set with labels
             csv_location: path to the directory that contains the csv files
-            
+
         returns:
             weight: the ratio of the images labeled "low" vs labeled "high", to be used in the loss function during trainning
-    
+
     '''
-    
+
     image_num = 0
     train = []
     test = []
@@ -151,5 +151,5 @@ def stats_and_weights(train_csv, test_csv, csv_location):
         print("wieght (low/high): "+str(weight))
     except ZeroDivisionError:
         print(ZeroDivisionError)
-    
+
     return weight

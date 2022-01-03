@@ -137,7 +137,7 @@ def load_resnet(weight):
 
 
 
-def train_and_validate(model, loss_func, optimizer, scheduler, epochs, train_data_loader, valid_data_loader, train_data_size, valid_data_size, image_transforms, dataset, device, output_files):
+def train_and_validate(model, loss_func, optimizer, scheduler, epochs, train_data_loader, valid_data_loader, train_data_size, valid_data_size, image_transforms, dataset, device, output_files, j):
     '''
     Function to train and validate
     Parameters
@@ -289,16 +289,16 @@ def train_and_validate(model, loss_func, optimizer, scheduler, epochs, train_dat
         if epoch ==0:
             best_valid = valid_roc_probs
             best_epoch = epoch
-            torch.save(model.state_dict(), output_files+ dataset+'_model_'+str(epoch)+'.pt')
+            torch.save(model.state_dict(), output_files+ dataset+'_model_'+str(epoch)+f'_{j}_fold.pt')
         if valid_roc_probs > best_valid:
             best_valid = valid_roc_probs
             best_epoch = epoch
             print('best validation AUC ROC so far')
-            torch.save(model.state_dict(), output_files+dataset+'_model_'+str(epoch)+'.pt')
+            torch.save(model.state_dict(), output_files+dataset+'_model_'+str(epoch)+f'_{j}_fold.pt')
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
     #save the training history
-    torch.save(history,output_files+dataset+'_history.pt')
+    torch.save(history,output_files+dataset+f'_history_{j}_fold.pt')
 
     # get statistics
 
