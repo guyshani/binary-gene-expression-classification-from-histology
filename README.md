@@ -1,6 +1,6 @@
 # binary-gene-expression-classification-from-histology
 
-- create 2 class of gene expression (RNAseq) and label samples accordinly.
+- create 2 classes of gene expression (RNAseq) and label samples accordinly.
 - use k-fold and labels to train and test a CNN on the histological images of the samples.
 - get measurments for the ability of the CNN to diffrentiate between the classes.
 
