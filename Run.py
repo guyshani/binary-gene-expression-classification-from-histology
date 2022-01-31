@@ -74,7 +74,8 @@ def label_data_train_and_predict(gene, ensembl, k, batch_size, num_workers, num_
 	# the expression value is zero for all the patients (therefor only one class)
 		return "ERROR", "ERROR"
 
-	cross_val(dataframe, k, image_location, csv_location, gene) # creates k csv files.
+	# creates k csv files.
+	cross_val(dataframe, k, image_location, csv_location, gene)
 
 
 	tiles_probs = []

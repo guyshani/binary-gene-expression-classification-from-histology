@@ -82,7 +82,7 @@ def fit_GM(df, gene, csv_location, output_files):
 
         # if one of the classes have less then 10 patients then split the class by the average expression.
 
-        mean = statistics.nanmean(df['expression'])
+        mean = np.nanmean(df['expression'])
         df["cluster"].loc[df.query(f'(expression <= {mean})').index.values] = 'low'
         df["cluster"].loc[df.query(f'(expression > {mean})').index.values] = 'high'
 

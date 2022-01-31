@@ -20,39 +20,39 @@ def cross_val(df, k, image_location, csv_location, gene):
     this function devides the dataset into k group, stratified by class.
     it saves a list of image name and class for every group in a csv format.
     '''
-
+    # create a copy of the label matrix
     df_temp = df.copy()
     print("lnumber of patients (cross_val): "+str(len(df)))
     df["dataset"] = ''
+    # create a list of all image names
     image_lst = os.listdir(image_location)
 
-    # split into datasets and add the dataset label in dataset column
+    # split into groups (folds) and add a dataset column with coresponding indecies
     for label in ['high', 'low']:
         # count the number of samples in each class
         tot = len(df_temp.query('(cluster == @label)'))
 
         for i in range(k):
+            # randomly pick samples for a group (size = tot/numbert of folds)
             group = np.random.choice(df_temp.query('(cluster == @label)').index.values, int(tot/k), replace = False)
+            # tag the group samples with an index
             df["dataset"].iloc[group] = i
+            # drop the group samples from the temporary df
             df_temp = df_temp.drop(group)
 
+    # write a csv file for each group with sample names and label
     for i in range(k):
         with open(csv_location+f"{gene}_crossval_group_{i}.csv", "w") as cgroup:
 
+            # run over samples in the df, and write the image names of the samples from group i into the file
             for j in range(len(df)):
-                marker = "first"
                 tcga = df["tcga_name"].iloc[j]
                 label = df["cluster"].iloc[j]
                 dataset = df["dataset"].iloc[j]
-                for image in image_lst:
-                    if tcga == image[17:29]:
-                        if dataset == i:
+                if dataset == i:
+                    for image in image_lst:
+                        if tcga == image[17:29]:
                             cgroup.write(image+","+label+"\n")
-                            '''
-                            if marker == "first":
-                                print("patient name: "+str(tcga))
-                                marker = "notfirst"
-                            '''
 
 
 
