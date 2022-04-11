@@ -78,9 +78,9 @@ def fit_GM(df, gene, csv_location, output_files):
         df['cluster'] = df['cluster'].replace(1,'high')
 
     # checks if one of the groups is not too small
-    if len(np.where(df['cluster'] == 'high')[0]) < 10 or len(np.where(df['cluster'] == 'low')[0]) <10:
+    if len(np.where(df['cluster'] == 'high')[0]) < 20 or len(np.where(df['cluster'] == 'low')[0]) <10:
 
-        # if one of the classes have less then 10 patients then split the class by the average expression.
+        # if one of the classes have less then 20 patients then split the class by the average expression.
 
         mean = np.nanmean(df['expression'])
         df["cluster"].loc[df.query(f'(expression <= {mean})').index.values] = 'low'
@@ -91,8 +91,8 @@ def fit_GM(df, gene, csv_location, output_files):
 
 
     #seperation between the groups (1 is best and -1 is worse)
-    silhouette_score(df[['expression']], cluster)
-    df.to_csv(output_files+f"{gene}_crossval.csv", columns= ["tcga_name", "cluster"],header=False, index=False)
+    print("silhouette_score:  "+str(silhouette_score(df[['expression']], cluster)))
+    #df.to_csv(output_files+f"{gene}_crossval.csv", columns= ["tcga_name", "cluster"],header=False, index=False)
 
     print("number of patients in \"high\" group: "+ str(len(np.where(df['cluster'] == 'high')[0])))
     print("number of patients in \"low\" group: "+ str(len(np.where(df['cluster'] == 'low')[0])))

@@ -1,8 +1,8 @@
 import math
 
-input_dir = "/home/guysh/Documents/predict_gene_expression_from_histology/artificiale_data/"
-output_dir = "/home/guysh/Documents/predict_gene_expression_from_histology/artificiale_data/"
-file_name = "gene_list"
+input_dir = "/home/guysh/Documents/gene_lists_forcountsrun/shuffled_run/5000_6000/"
+output_dir = "/home/guysh/Documents/gene_lists_forcountsrun/shuffled_run/5000_6000/"
+file_name = "5000_6000"
 
 def split_function_trios(main_list):
     for i in range(int(math.ceil(len(main_list)/3))):
@@ -33,4 +33,4 @@ def split_function_pairs(main_list):
 with open(input_dir + file_name + ".csv", "r") as gene_list:
 
     main_list = gene_list.readlines()
-    split_function_trios(main_list)
+    split_function_pairs(main_list)

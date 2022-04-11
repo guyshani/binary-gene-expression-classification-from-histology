@@ -1,16 +1,16 @@
 import os
 import pandas as pd
-from sklearn.metrics import precision_recall_curve, balanced_accuracy_score, auc
+from sklearn.metrics import precision_recall_curve, balanced_accuracy_score, auc, cohen_kappa_score
 import numpy as np
+import gzip
 
-
-output_dirs = "/storage/bfe_maruvka/guyshani/DGX_files/output_files_first_2000"
+output_dirs = "/storage/bfe_maruvka/guyshani/DGX_files/output_files_3000_4000"
 
 outputdirs = os.listdir(output_dirs)
 
 gene_list = []
-cutoff_list = []
 accuracy_list = []
+kappa_list = []
 auc_list = []
 ratios = []
 pos_ratio_list = []
@@ -19,6 +19,7 @@ for dir in outputdirs:
 
     gene = dir.split("_")[1]
     try:
+        print(f"{output_dirs}/{dir}/{gene}_patients_probs.csv")
         df = pd.read_csv(f"{output_dirs}/{dir}/{gene}_patients_probs.csv")
     except FileNotFoundError:
         print("No such file")
@@ -52,17 +53,15 @@ for dir in outputdirs:
     else:
         pos_ratio = low/(high+low)
 
-    BA_ref = 0
-    # find the cutoff that gives the best balanced accuracy score
-    for i in list(np.arange(1,10)/10):
-        if high/low < 1:
-            new_list = [1 if model_probs[j] > i else 0 for j in list(range(len(model_probs)))]
-        else:
-            new_list = [0 if model_probs[j] > i else 1 for j in list(range(len(model_probs)))]
-        BA = balanced_accuracy_score(t_labels, new_list)
-        if BA > BA_ref:
-            BA_ref = BA
-            cutoff = i
+
+    # balanced accuracy score and cohens kappa
+
+    if high/low < 1:
+        new_list = [1 if model_probs[j] > 0.5 else 0 for j in list(range(len(model_probs)))]
+    else:
+        new_list = [0 if model_probs[j] > 0.5 else 1 for j in list(range(len(model_probs)))]
+    BA = balanced_accuracy_score(t_labels, new_list)
+    kappa = cohen_kappa_score(t_labels, new_list)
 
 
     # model probs = 1-probs that i got
@@ -73,12 +72,12 @@ for dir in outputdirs:
 
 
     gene_list.append(gene)
-    cutoff_list.append(cutoff)
-    accuracy_list.append(BA_ref)
+    accuracy_list.append(BA)
+    kappa_list.append(kappa)
     auc_list.append(auc_score)
     ratios.append(high/low)
     pos_ratio_list.append(pos_ratio)
 
-d = {'hugo_symbol': gene_list, 'cutoff': cutoff_list, 'balanced_accuracy': accuracy_list, 'precision_recall_auc': auc_list, 'ratio_hightolow': ratios, 'pos_ratio': pos_ratio_list}
+d = {'hugo_symbol': gene_list, 'balanced_accuracy': accuracy_list, 'precision_recall_auc': auc_list, 'cohens_kappa': kappa_list, 'ratio_hightolow': ratios, 'pos_ratio': pos_ratio_list}
 df = pd.DataFrame(data=d)
 df.to_csv(f"{output_dirs}/auc_and_accuracy.csv")

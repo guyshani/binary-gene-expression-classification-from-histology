@@ -56,13 +56,11 @@ def cross_val(df, k, image_location, csv_location, gene):
 
 
 
-def load_data(train_csv, test_csv, bs, num_workers, csv_location, image_location, device):
+def load_data(train_csv, bs, num_workers, csv_location, image_location, device):
 
     '''
-    a function that set the transformations and loads the training and testing data.
+    a function that set the transformations and loads the training data.
     '''
-
-    history = []
 
     image_transforms = {
         'train': transforms.Compose([
@@ -93,20 +91,17 @@ def load_data(train_csv, test_csv, bs, num_workers, csv_location, image_location
 
     # Load Data from folders
     data = {
-        'train': CATEGORICAL(csv_file = csv_location+f"{train_csv}", rootdir = image_location ,transform=image_transforms['train']),
-        'valid': CATEGORICAL(csv_file = csv_location+f"{test_csv}", rootdir = image_location ,transform=image_transforms['valid'])
+        'train': CATEGORICAL(csv_file = csv_location+f"{train_csv}", rootdir = image_location ,transform=image_transforms['train'])
     }
 
     # Size of Data, to be used for calculating Average Loss and Accuracy
     train_data_size = len(data['train'])
-    valid_data_size = len(data['valid'])
 
     # Create iterators for the Data loaded using DataLoader module
     kwargs = {'num_workers': num_workers, 'pin_memory': True} if device == "cuda:0" else {}
     train_data_loader = DataLoader(data['train'], batch_size=bs, shuffle=True, **kwargs)
-    valid_data_loader = DataLoader(data['valid'], batch_size=bs, shuffle=True, **kwargs)
 
-    return train_data_loader, valid_data_loader, train_data_size, valid_data_size, image_transforms
+    return train_data_loader, train_data_size, image_transforms
 
 
 def load_resnet(weight):
@@ -131,13 +126,12 @@ def load_resnet(weight):
 
     #the model parameters are registered here in the optimizer (change learning rate)
     optimizer = optim.Adam(resnet18.layer4.parameters(), lr = 1e-3)
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor = 0.5, patience = 8, threshold = 0.2)
 
-    return resnet18, loss_func, optimizer, scheduler
-
+    return resnet18, loss_func, optimizer
 
 
-def train_and_validate(model, loss_func, optimizer, scheduler, epochs, train_data_loader, valid_data_loader, train_data_size, valid_data_size, image_transforms, dataset, device, output_files, j):
+
+def train_model(model, loss_func, optimizer, epochs, train_data_loader, train_data_size, image_transforms, dataset, device, output_files, fold):
     '''
     Function to train and validate
     Parameters
@@ -151,14 +145,8 @@ def train_and_validate(model, loss_func, optimizer, scheduler, epochs, train_dat
         best epoch: the epoch number with highest balanced accuracy
     '''
 
-
-    best_valid_loss = 0.0
-    history = []
     t_predictions = []
     t_labels = []
-    v_predictions = []
-    v_labels = []
-    v_probs =[]
     model.to(device)
 
     for epoch in range(epochs):
@@ -171,9 +159,6 @@ def train_and_validate(model, loss_func, optimizer, scheduler, epochs, train_dat
         # Loss within the epoch
         train_loss = 0.0
         train_acc = 0.0
-
-        valid_loss = 0.0
-        valid_acc = 0.0
 
         for i, (inputs, labels) in enumerate(train_data_loader):
 
@@ -216,97 +201,27 @@ def train_and_validate(model, loss_func, optimizer, scheduler, epochs, train_dat
 
             # print("Batch number: {:03d}, Training: Loss: {:.4f}, Accuracy: {:.4f}".format(i, loss.item(), acc.item()))
 
-        # Validation - No gradient tracking needed
-        with torch.no_grad():
-
-            # Set to evaluation mode
-            model.eval()
-            # Validation loop
-            for j, (inputs, labels) in enumerate(valid_data_loader):
-
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-
-                # Forward pass - compute outputs on input data using the model
-                outputs = model(inputs)
-
-                # Compute loss
-                loss = loss_func(outputs, labels)
-
-                # Compute the total loss for the batch and add it to valid_loss
-                valid_loss += loss.item() * inputs.size(0)
-
-                # Calculate validation accuracy
-                normal = torch.nn.functional.softmax(outputs.data, dim=1)
-                ret, predictions = torch.max(normal, 1)
-                correct_counts = predictions.eq(labels.data.view_as(predictions))
-
-                # Convert correct_counts to float and then compute the mean
-                acc = torch.mean(correct_counts.type(torch.FloatTensor))
-
-                # Compute total accuracy in the whole batch and add to valid_acc
-                valid_acc += acc.item() * inputs.size(0)
-
-                # append predictions and labels for later claculations
-                v_predictions = np.append(v_predictions ,np.array(predictions.cpu()), axis =0)
-                v_labels = np.append(v_labels ,labels.data.view_as(predictions).cpu(), axis =0)
-
-                # get predictions in probabilitys
-                normal = np.array(torch.nn.functional.softmax(outputs.data, dim=1).cpu())
-                v_probs = np.append(v_probs ,normal[:,1], axis =0)
-
-                # print("Validation Batch number: {:03d}, Validation: Loss: {:.4f}, Accuracy: {:.4f}".format(j, loss.item(), acc.item()))
 
         # Find average training loss and training accuracy
         avg_train_loss = train_loss / train_data_size
         avg_train_acc = train_acc / train_data_size
 
-        # Find average training loss and training accuracy
-        avg_valid_loss = valid_loss / valid_data_size
-        avg_valid_acc = valid_acc / valid_data_size
-
-        # find accuracys per class
-        valid_roc = roc_auc_score(v_labels, v_predictions)
-        valid_roc_probs = roc_auc_score(v_labels, v_probs)
-        #balanced_accuracy = balanced_accuracy_score(v_labels, v_predictions)
-
-        history.append([avg_train_loss, avg_valid_loss, avg_train_acc, avg_valid_acc, valid_roc])
-        # update the learning rate based on validation/epoch
-        scheduler.step(avg_valid_loss)
-
         epoch_end = time.time()
 
         print(
-            "Epoch : {:03d}, Training: Loss: {:.4f}, Accuracy: {:.4f}%, \n\t\tValidation : Loss : {:.4f}, Accuracy: {:.4f}%, Time: {:.4f}s".format(
-                epoch + 1, avg_train_loss, avg_train_acc * 100, avg_valid_loss, avg_valid_acc * 100,
-                epoch_end - epoch_start))
+            "Epoch : {:03d}, Training: Loss: {:.4f}, Accuracy: {:.4f}%, Time: {:.4f}s".format(
+                epoch + 1, avg_train_loss, avg_train_acc * 100, epoch_end - epoch_start))
         print("learning rate: "+str(optimizer.param_groups[0]['lr']))
-        print("Validation: "+"\n"+"ROC: "+str(valid_roc))
-        print("ROC probs: "+str(valid_roc_probs))
-        #print("balanced accuracy: "+str(balanced_accuracy))
 
-        # save the best model
-        if epoch ==0:
-            best_valid = valid_roc_probs
-            best_epoch = epoch
-            torch.save(model.state_dict(), output_files+ dataset+'_model_'+str(epoch)+f'_{j}_fold.pt')
-        if valid_roc_probs > best_valid:
-            best_valid = valid_roc_probs
-            best_epoch = epoch
-            print('best validation AUC ROC so far')
-            torch.save(model.state_dict(), output_files+dataset+'_model_'+str(epoch)+f'_{j}_fold.pt')
+        # save the last model
+        if epoch + 1 == epochs:
+            torch.save(model.state_dict(), output_files+dataset+f'_model_{fold}.pt')
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
-    #save the training history
-    torch.save(history,output_files+dataset+f'_history_{j}_fold.pt')
-
-    # get statistics
+    return model
 
 
-    return model, best_epoch
-
-
-def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files, image_location, device):
+def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files, image_location, device, num_workers_test):
 
     '''
     parameters:
@@ -330,7 +245,10 @@ def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files
     # lists for the tiles from each class
     high_tiles = np.array([])
     low_tiles = np.array([])
+    image_names_high =[]
+    image_names_low =[]
 
+    # create a dataframe with all image names and labels for the test set
     df = pd.read_csv(csv_location+csv_file, header =None)
     df.columns=['tcga_name','label']
     # create a list of patients names
@@ -346,7 +264,7 @@ def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files
         # load the tiles of the patient
         load = CATEGORICAL(csv_file = temp_files+f"{patient}.csv", rootdir = image_location ,transform=image_transforms['test'])
 
-        kwargs = {'num_workers': 1, 'pin_memory': True} if device == "cuda:0" else {}
+        kwargs = {'num_workers': num_workers_test, 'pin_memory': True} if device == "cuda:0" else {}
         valid_data_loader = DataLoader(load, batch_size=batch_s, shuffle=False)
 
         # pass all tiles from each patient
@@ -354,6 +272,7 @@ def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files
             model.eval()
             model.cuda()
             for (inputs, labels) in valid_data_loader:
+
                 inputs = inputs.to(device)
                 labels = labels.to(device)
                 # Forward pass - compute outputs on input data using the model
@@ -373,14 +292,27 @@ def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files
         # get patient label
         patient_labels.append(df['label'].iloc[df[df["tcga_name"].str.contains(patient)].index[0]])
         patient_names.append(patient)
+
         if df['label'].iloc[df[df["tcga_name"].str.contains(patient)].index[0]] == "high":
             high_tiles = np.concatenate((high_tiles, classzero), axis=0)
+            # append tile names to the names list
+            image_names_high.extend(df['tcga_name'].iloc[df[df["tcga_name"].str.contains(patient)].index[1:]])
         else:
             low_tiles = np.concatenate((low_tiles, classzero), axis=0)
+            # append tile names to the names list
+            image_names_low.extend(df['tcga_name'].iloc[df[df["tcga_name"].str.contains(patient)].index[1:]])
+
+
+    # combine the tile data for all of the patients in the fold
+    low = pd.DataFrame({'low_prob': low_tiles, 'patient': image_names_low})
+    low = low.assign(label = 'low')
+    high = pd.DataFrame({'low_prob': high_tiles, 'patient': image_names_high})
+    high = high.assign(label = 'high')
+    tiles = pd.concat([low,high], ignore_index=True, axis=0)
 
     # create a dataframe with the label and median of each patient
     d = {'patient': patient_names, 'labels': patient_labels, 'median': classzero_median, 'average': classzero_average}
     dataf = pd.DataFrame(data=d)
     dataf.columns=['tcga_name','label','median', 'average']
 
-    return dataf, low_tiles, high_tiles
+    return dataf, tiles

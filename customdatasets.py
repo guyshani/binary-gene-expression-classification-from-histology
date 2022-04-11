@@ -58,7 +58,7 @@ class MSI_images_zip:
 
     #csv_file - name of the csv file including location to it.
     #zip_file - name of the zip file (containing images without any folders) including location to it.
-    #there should be a different csv file for training, validating or testing. 
+    #there should be a different csv file for training, validating or testing.
 
     def __init__(self, csv_file, zip_file, transform=None):
         self.annotations = pd.read_csv(csv_file)
@@ -118,13 +118,20 @@ class CATEGORICAL:
         image = PIL.Image.open(img_path)
         categor = torch.tensor(int(self.class2index[self.annotations.iloc[index, 1]]))
 
+        ''' for testing purpose
+        if output_f != 1:
+            with open(f"/home1/guyshani/predict_expression_counts/output_files/{self.output_f}_imageorder.csv","a") as out:
+                out.write(self.annotations.iloc[index, 0]+"\n")
+        '''
+
         if self.transform:
             image = self.transform(image)
 
         return image, categor
-        
-        
-        
+
+
+
+
 class CATEGORICAL_zip:
 
     def __init__(self, csv_file, zip_file, transform=None):

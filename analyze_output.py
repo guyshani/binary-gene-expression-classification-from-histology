@@ -15,6 +15,8 @@ output:
 import os
 import re
 import pandas as pd
+import numpy as np
+from scipy import stats
 
 
 file_number = 67
@@ -53,7 +55,7 @@ with open(file_path+"missing genes.csv", "w") as missing_genes:
             if not os.path.exists(file_path+output_name+str(i)+".out"):
                 print("file not found")
                 continue
-            
+
             with open(file_path+output_name+str(i)+".out", "r") as output:
 
 
@@ -103,3 +105,87 @@ with open(file_path+"missing genes.csv", "w") as missing_genes:
 
                     # write gene stats to summary file
                     summary.write(gene_symbol+","+p_val+","+logfold+","+patients_low+","+patients_high+","+lh+","+roc+"\n")
+
+
+
+
+
+#                                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+				# t test for tiles
+				low = tiles_probs['low_prob'].loc[tiles_probs.query(f'(label == "low")').index.values].values
+				high = tiles_probs['low_prob'].loc[tiles_probs.query(f'(label == "high")').index.values].values
+				tiles_ttest = stats.ttest_ind(low, high, equal_var=False)[1]
+
+				# t test for patients median
+				low = patients_probs['median'].loc[patients_probs.query(f'(label == "low")').index.values].values
+				high = patients_probs['median'].loc[patients_probs.query(f'(label == "high")').index.values].values
+				patients_ttest_median = stats.ttest_ind(low, high, equal_var=False)[1]
+
+				# t test for patients average
+				low = patients_probs['average'].loc[patients_probs.query(f'(label == "low")').index.values].values
+				high = patients_probs['average'].loc[patients_probs.query(f'(label == "high")').index.values].values
+				patients_ttest_average = stats.ttest_ind(low, high, equal_var=False)[1]
+
+				# claculate log fold change with average probs valuees of patients using average probs values of tiles for each patient
+				avg_high = sum(high)/len(high)
+				avg_low = sum(low)/len(low)
+				logfoldchange = (avg_high/avg_low-1)
+				'''
+				p1 = (ggplot(patients_probs)
+					+geom_point(aes(x = 'label', y = 'median'), alpha = 0.5)
+					+geom_boxplot(aes(x = 'label', y = 'median'), alpha = 0.5)
+					+labs(title = f'{gene}  median class 0 probability, t-test: {patients_ttest_median}'))
+				'''
+				p2 = (ggplot(patients_probs)
+					+geom_point(aes(x = 'label', y = 'average'), alpha = 0.5)
+					+geom_boxplot(aes(x = 'label', y = 'average'), alpha = 0.5)
+					+labs(title = f'{gene}  average class 0 probability t-test: {patients_ttest_average}'))
+
+				p3 = (ggplot(tiles_probs)
+					+geom_point(aes(x = 'label', y = 'low_prob'), alpha = 0.5)
+					+geom_boxplot(aes(x = 'label', y = 'low_prob'), alpha = 0.5)
+					+labs(title = f'{gene} class 0 probabilitys tiles, t-test: {tiles_ttest}'))
+
+				#ggsave(plot = p1, filename = f"{gene}_median_class_0_probability.png", path = output_files)
+				ggsave(plot = p2, filename = f"{gene}_average_class_0_probability.pdf", path = output_files)
+				ggsave(plot = p3, filename = f"{gene}_class_0_probability_tiles.pdf", path = output_files)
+
+				final_file.write(ensembl+","+gene+","+str(tiles_ttest)+","+str(patients_ttest_average)+","+str(patients_ttest_median)+","+str(logfoldchange)+"\n")
+
+
+
+# t test
+
+
+filelist = os.listdir("/home/guysh/Documents/servers_data/dgx/artificiale_data/patients_probs")
+
+gene_list = []
+average_ttest = []
+median_ttest = []
+
+for file in filelist:
+
+    gene = file.split("_")[0]
+    try:
+        df = pd.read_csv(f"/home/guysh/Documents/servers_data/dgx/artificiale_data/patients_probs/{file}")
+    except FileNotFoundError:
+        print("No such file")
+        continue
+    except NotADirectoryError:
+        break
+    # get probabilitys (class low/0)
+    average_probs_low = np.array(df["average"].loc[df['label'] == "low"])
+    average_probs_high = np.array(df["average"].loc[df['label'] == "high"])
+    median_probs_low = np.array(df["median"].loc[df['label'] == "low"])
+    median_probs_high = np.array(df["median"].loc[df['label'] == "high"])
+
+
+
+    average_ttest.append(stats.ttest_ind(average_probs_high, average_probs_low, equal_var=True, alternative='less')[1])
+    median_ttest.append(stats.ttest_ind(median_probs_high, median_probs_low, equal_var=True, alternative='less')[1])
+    gene_list.append(gene)
+
+
+d = {'hugo_symbol': gene_list, 'average_t_test': average_ttest, 'median_t_test': median_ttest}
+df = pd.DataFrame(data=d)
+df.to_csv(f"/home/guysh/Documents/servers_data/dgx/artificiale_data/artificial_pvalues.csv")
