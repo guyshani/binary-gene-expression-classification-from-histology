@@ -56,7 +56,11 @@ def cross_val(df, k, image_location, csv_location, gene):
 
 
 
+<<<<<<< HEAD
 def load_data(train_csv, bs, num_workers, csv_location, image_location, device):
+=======
+def load_data(train_csv, bs, num_workers, csv_location, image_location, device, cuda_num):
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
 
     '''
     a function that set the transformations and loads the training data.
@@ -98,13 +102,21 @@ def load_data(train_csv, bs, num_workers, csv_location, image_location, device):
     train_data_size = len(data['train'])
 
     # Create iterators for the Data loaded using DataLoader module
+<<<<<<< HEAD
     kwargs = {'num_workers': num_workers, 'pin_memory': True} if device == "cuda:0" else {}
+=======
+    kwargs = {'num_workers': num_workers, 'pin_memory': True} if device == cuda_num else {}
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
     train_data_loader = DataLoader(data['train'], batch_size=bs, shuffle=True, **kwargs)
 
     return train_data_loader, train_data_size, image_transforms
 
 
+<<<<<<< HEAD
 def load_resnet(weight):
+=======
+def load_resnet(weight, device):
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
 
     '''
     load resnet18, set loss function and training parameters
@@ -122,7 +134,11 @@ def load_resnet(weight):
         param.requires_grad = True
 
     #loss_func = nn.NLLLoss()
+<<<<<<< HEAD
     loss_func = nn.CrossEntropyLoss(weight = torch.FloatTensor([1,weight]).cuda())
+=======
+    loss_func = nn.CrossEntropyLoss(weight = torch.FloatTensor([1,weight]).to(device))
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
 
     #the model parameters are registered here in the optimizer (change learning rate)
     optimizer = optim.Adam(resnet18.layer4.parameters(), lr = 1e-3)
@@ -147,7 +163,13 @@ def train_model(model, loss_func, optimizer, epochs, train_data_loader, train_da
 
     t_predictions = []
     t_labels = []
+<<<<<<< HEAD
     model.to(device)
+=======
+    #model.to(device)
+    torch.cuda.set_device(device)
+    model.cuda()
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
 
     for epoch in range(epochs):
         epoch_start = time.time()
@@ -165,15 +187,34 @@ def train_model(model, loss_func, optimizer, epochs, train_data_loader, train_da
             inputs = inputs.to(device)
             labels = labels.to(device)
 
+<<<<<<< HEAD
+=======
+            #print("---inputs: "+str(inputs.device))
+            #print("---labels: "+str(labels.device))
+            #for ind in model.parameters():
+            #    print(ind.device)
+            
+
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
             # Clean existing gradients
             optimizer.zero_grad()
 
             # Forward pass - compute outputs on input data using the modelff
             outputs = model(inputs)
 
+<<<<<<< HEAD
             # Compute loss
             loss = loss_func(outputs, labels)
 
+=======
+            #print("---outputs: "+str(outputs.device))
+
+            # Compute loss
+            loss = loss_func(outputs, labels)
+
+            #print("---loss: "+str(loss.device))
+
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
             # Backpropagate the gradients (backwards pass, calculate gradients for each parameter)
             loss.backward()
 
@@ -221,7 +262,11 @@ def train_model(model, loss_func, optimizer, epochs, train_data_loader, train_da
     return model
 
 
+<<<<<<< HEAD
 def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files, image_location, device, num_workers_test):
+=======
+def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files, image_location, device, cuda_num, num_workers_test):
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
 
     '''
     parameters:
@@ -245,6 +290,11 @@ def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files
     # lists for the tiles from each class
     high_tiles = np.array([])
     low_tiles = np.array([])
+<<<<<<< HEAD
+=======
+    #patient_names_high = []
+    #patient_names_low = []
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
     image_names_high =[]
     image_names_low =[]
 
@@ -264,7 +314,11 @@ def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files
         # load the tiles of the patient
         load = CATEGORICAL(csv_file = temp_files+f"{patient}.csv", rootdir = image_location ,transform=image_transforms['test'])
 
+<<<<<<< HEAD
         kwargs = {'num_workers': num_workers_test, 'pin_memory': True} if device == "cuda:0" else {}
+=======
+        kwargs = {'num_workers': num_workers_test, 'pin_memory': True} if device == cuda_num else {}
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
         valid_data_loader = DataLoader(load, batch_size=batch_s, shuffle=False)
 
         # pass all tiles from each patient
@@ -295,11 +349,21 @@ def model_evaluation(csv_file, model, image_transforms, csv_location, temp_files
 
         if df['label'].iloc[df[df["tcga_name"].str.contains(patient)].index[0]] == "high":
             high_tiles = np.concatenate((high_tiles, classzero), axis=0)
+<<<<<<< HEAD
             # append tile names to the names list
             image_names_high.extend(df['tcga_name'].iloc[df[df["tcga_name"].str.contains(patient)].index[1:]])
         else:
             low_tiles = np.concatenate((low_tiles, classzero), axis=0)
             # append tile names to the names list
+=======
+            # append patient name to the names list
+            #patient_names_high.extend([patient]*len(classzero))
+            image_names_high.extend(df['tcga_name'].iloc[df[df["tcga_name"].str.contains(patient)].index[1:]])
+        else:
+            low_tiles = np.concatenate((low_tiles, classzero), axis=0)
+            # append patient name to the names list
+            #patient_names_low.extend([patient]*len(classzero))
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
             image_names_low.extend(df['tcga_name'].iloc[df[df["tcga_name"].str.contains(patient)].index[1:]])
 
 

@@ -63,6 +63,7 @@ def fit_GM(df, gene, csv_location, output_files):
     the class labels are then stored in a new column (cluster) in df.
     '''
 
+<<<<<<< HEAD
     GM = GaussianMixture(n_components=2).fit(df[['expression']])
     #GM.means_
     cluster = GM.predict(df[['expression']])
@@ -92,6 +93,64 @@ def fit_GM(df, gene, csv_location, output_files):
 
     #seperation between the groups (1 is best and -1 is worse)
     print("silhouette_score:  "+str(silhouette_score(df[['expression']], cluster)))
+=======
+    # check if average expression is low
+    if np.nanmean(df["expression"]) < 10:
+
+        # add an empty column for labels
+        df["cluster"]= np.nan
+
+        # if the number of zeros is smaller then 20
+        # in this case we want to split patients by mean expression
+        if (df['expression'] == 0).sum() < 20:
+            mean = np.nanmean(df['expression'])
+            df["cluster"].loc[df.query(f'(expression <= {mean})').index.values] = 'low'
+            df["cluster"].loc[df.query(f'(expression > {mean})').index.values] = 'high'
+
+            print("^^^^^^^" +gene+"  is using average for class split")
+
+        else:
+            # if we have a large enough number of zeros, we want to split patients by equal or unequal to zero
+            mean = np.nanmean(df['expression'])
+            df["cluster"].loc[df.query('(expression == 0)').index.values] = 'low'
+            df["cluster"].loc[df.query('(expression > 0)').index.values] = 'high'
+
+            print("^^^^^^^" +gene+"  is class splitting by zeros")
+    
+    # average expression is not low
+    else:
+
+
+        GM = GaussianMixture(n_components=2).fit(df[['expression']])
+        #GM.means_
+        cluster = GM.predict(df[['expression']])
+        params=GM.get_params()
+
+        df["cluster"] = cluster
+        #df["expression"]
+        if np.mean(df['expression'].loc[df.query(f'(cluster == "0")').index.values].values) > np.mean(df['expression'].loc[df.query(f'(cluster == "1")').index.values].values):
+            df['cluster'] = df['cluster'].replace(1,'low')
+            df['cluster'] = df['cluster'].replace(0,'high')
+        else:
+            df['cluster'] = df['cluster'].replace(0,'low')
+            df['cluster'] = df['cluster'].replace(1,'high')
+
+        # checks if one of the groups is not too small
+        if len(np.where(df['cluster'] == 'high')[0]) < 20 or len(np.where(df['cluster'] == 'low')[0]) <10:
+
+            # if one of the classes have less then 20 patients then split the class by the average expression.
+
+            mean = np.nanmean(df['expression'])
+            df["cluster"].loc[df.query(f'(expression <= {mean})').index.values] = 'low'
+            df["cluster"].loc[df.query(f'(expression > {mean})').index.values] = 'high'
+
+            print("^^^^^^^" +gene+"  is using average for class split")
+
+
+        #seperation between the groups (1 is best and -1 is worse)
+        print("silhouette_score:  "+str(silhouette_score(df[['expression']], cluster)))
+
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
     #df.to_csv(output_files+f"{gene}_crossval.csv", columns= ["tcga_name", "cluster"],header=False, index=False)
 
     print("number of patients in \"high\" group: "+ str(len(np.where(df['cluster'] == 'high')[0])))
@@ -153,3 +212,31 @@ def stats_and_weights(train_csv, test_csv, csv_location):
         print(ZeroDivisionError)
 
     return weight
+<<<<<<< HEAD
+=======
+
+
+# for artificial data
+def label_matrix(gene):
+
+    '''
+    this function recieves a label matrix with the format: "symbols, sample1, sample2, ..."
+    create a dataframe df with TCGA names and expression for the gene.
+    '''
+    #gene = "gene1"
+    #output_files = "/home/guysh/Documents/predict_gene_expression_from_histology/artificiale_data/"
+    data = pd.read_csv("/home/guysh/Documents/predict_gene_expression_from_histology/artificiale_data/artificiale_label_matrix.csv")
+    df = data.loc[data['symbols'] == gene]
+    df=df.drop(["symbols"], axis = 1).T
+    df = df.reset_index()
+    df.columns = ["tcga_name", "cluster"]
+    df = df.drop(index = 0)
+    df = df.reset_index(drop = True)
+
+    df.to_csv(output_files+f"{gene}_crossval.csv", columns= ["tcga_name", "cluster"],header=False, index=False)
+
+    print("number of patients in \"high\" group: "+ str(len(np.where(df['cluster'] == 'high')[0])))
+    print("number of patients in \"low\" group: "+ str(len(np.where(df['cluster'] == 'low')[0])))
+
+    return df
+>>>>>>> 28a0459 (added the new files from the lab computer (CAM_analysis and train_moco) no real updates on other files)
